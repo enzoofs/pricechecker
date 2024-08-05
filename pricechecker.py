@@ -3,20 +3,20 @@ import re
 import fitz  # PyMuPDF
 import os
 
-# Função para leitura da planilha do fornecedor em formato CSV com delimitador correto
+# Function to read the supplier sheet in CSV format with the correct delimiter
 def read_supplier_sheet(file_path):
     try:
         df = pd.read_csv(file_path, delimiter=';')
-        # Converter valores de vírgula para ponto
+        # Convert values from comma to dot
         df['Subtotal (USD)'] = df['Subtotal (USD)'].str.replace(',', '.').astype(float)
-        print(f"Planilha {file_path} lida com sucesso.")
-        print(f"Colunas encontradas: {df.columns}")
+        print(f"Sheet {file_path} read successfully.")
+        print(f"Columns found: {df.columns}")
         return df
     except Exception as e:
-        print(f"Erro ao ler a planilha {file_path}: {e}")
+        print(f"Error reading the sheet {file_path}: {e}")
         return None
 
-# Função para extração de referências e valores dos PDFs
+# Function to extract references and values from PDFs
 def extract_reference_and_values_from_invoice(invoice_path):
     try:
         pdf_document = fitz.open(invoice_path)
@@ -27,30 +27,30 @@ def extract_reference_and_values_from_invoice(invoice_path):
             text += page.get_text()
         
         # Print the text extracted from the PDF
-        print(f"Texto extraído da invoice {invoice_path}:\n{text[:1000]}...")  # print the first 1000 characters for brevity
+        print(f"Text extracted from invoice {invoice_path}:\n{text[:1000]}...")  # print the first 1000 characters for brevity
         
         references = re.findall(r'REF# (\d+)', text)
         values = re.findall(r'(\d+,\d{2}) USD', text)
         values = [float(value.replace(',', '.')) for value in values]
 
-        print(f"Referências extraídas da invoice {invoice_path}: {references}")
-        print(f"Valores extraídos da invoice {invoice_path}: {values}")
+        print(f"References extracted from invoice {invoice_path}: {references}")
+        print(f"Values extracted from invoice {invoice_path}: {values}")
         
         return references, values
     except Exception as e:
-        print(f"Erro ao extrair referências e valores da invoice {invoice_path}: {e}")
+        print(f"Error extracting references and values from invoice {invoice_path}: {e}")
         return [], []
 
-# Função para comparar os valores extraídos com a planilha do fornecedor
+# Function to compare the extracted values with the supplier sheet
 def compare_values(supplier_df, invoice_references, invoice_values):
     discrepancies = []
-    print(f"Comparando {len(invoice_references)} referências e {len(invoice_values)} valores...")
+    print(f"Comparing {len(invoice_references)} references and {len(invoice_values)} values...")
     for ref, inv_value in zip(invoice_references, invoice_values):
         try:
             supplier_row = supplier_df[supplier_df['Ref ID'] == int(ref)]
             if not supplier_row.empty:
                 original_value = supplier_row['Subtotal (USD)'].values[0]
-                print(f"Referência {ref}: valor original {original_value}, valor da invoice {inv_value}")
+                print(f"Reference {ref}: original value {original_value}, invoice value {inv_value}")
                 if original_value != inv_value:
                     discrepancies.append({
                         'Ref ID': ref,
@@ -58,38 +58,38 @@ def compare_values(supplier_df, invoice_references, invoice_values):
                         'Invoice Value': inv_value
                     })
             else:
-                print(f"Referência {ref} não encontrada na planilha.")
+                print(f"Reference {ref} not found in the sheet.")
         except Exception as e:
-            print(f"Erro ao comparar valores para a referência {ref}: {e}")
+            print(f"Error comparing values for reference {ref}: {e}")
     return discrepancies
 
-# Função para gerar o relatório em formato CSV
+# Function to generate the report in CSV format
 def generate_report(discrepancies, report_file):
     try:
         report_df = pd.DataFrame(discrepancies)
         report_df.to_csv(report_file, index=False)
-        print(f"Relatório gerado em: {report_file}")
+        print(f"Report generated in: {report_file}")
     except Exception as e:
-        print(f"Erro ao gerar o relatório: {e}")
+        print(f"Error generating the report: {e}")
 
-# Caminhos dos arquivos
+# File paths
 supplier_file = 'C:/Python/PriceChecker/Automated Daily Shipment.csv'
 invoice_files = ['C:/Python/PriceChecker/invoices/CI_0084111684.pdf', 'C:/Python/PriceChecker/invoices/CI_0084113590.pdf']
 report_file = 'C:/Python/PriceChecker/discrepancies_report.csv'
 
-# Leitura da planilha do fornecedor
+# Reading the supplier sheet
 supplier_df = read_supplier_sheet(supplier_file)
 
-# Verificação das colunas necessárias
+# Check for required columns
 required_columns = ['Ref ID', 'Subtotal (USD)']
 if supplier_df is not None:
-    print(f'Colunas encontradas: {supplier_df.columns}')
+    print(f'Columns found: {supplier_df.columns}')
     for col in required_columns:
         if col not in supplier_df.columns:
-            print(f'Coluna necessária não encontrada: {col}')
+            print(f'Required column not found: {col}')
             exit()
 
-    # Extração e comparação dos dados
+    # Extract and compare data
     all_discrepancies = []
     for invoice_file in invoice_files:
         if os.path.exists(invoice_file):
@@ -97,9 +97,9 @@ if supplier_df is not None:
             discrepancies = compare_values(supplier_df, invoice_references, invoice_values)
             all_discrepancies.extend(discrepancies)
         else:
-            print(f'Arquivo PDF não encontrado: {invoice_file}')
+            print(f'PDF file not found: {invoice_file}')
 
-    # Gerar o relatório em formato CSV
+    # Generate the report in CSV format
     generate_report(all_discrepancies, report_file)
 else:
-    print("Erro na leitura da planilha, verifique o caminho do arquivo.")
+    print("Error reading the sheet, check the file path.")
